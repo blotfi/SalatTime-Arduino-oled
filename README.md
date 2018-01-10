@@ -12,7 +12,7 @@ The hardware part is composed of an Arduino Nano, a RTC DS1307 and the SSD1306 O
 
 Here is the part of code you have to adapt to change for your town:
 
-**in mainroutines.cpp**
+in **mainroutines.cpp**
 ```
 /** change your town */
 	const char CountryName[] PROGMEM = "Algeria";
@@ -23,7 +23,7 @@ Here is the part of code you have to adapt to change for your town:
 	const int Convention = 1;
 	const int DST = 0;
 ```
-**in stoled.ino**
+in **stoled.ino**
 ```
 //rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
 ```
