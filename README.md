@@ -11,6 +11,7 @@ The hardware part is composed of an Arduino Nano, an RTC and the SSD1306 OLED di
   - check the conventions on http://salat-mosque.com/salattime.php  (in expert mode)
 
 Here is the part of code you have to adapt to change for your town:
+**in mainroutines.cpp
 ```
 /** change your town */
 	const char CountryName[] PROGMEM = "Algeria";
@@ -21,3 +22,8 @@ Here is the part of code you have to adapt to change for your town:
 	const int Convention = 1;
 	const int DST = 0;
 ```
+**in stoled.ino
+```
+//rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+```
+uncomment to force the RTC to take the compilation date and time
