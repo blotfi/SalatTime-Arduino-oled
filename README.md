@@ -1,8 +1,8 @@
 # SalatTime-Arduino-oled
-A clock displayed on a small 0.98" OLED SSD1306 and also calculate and displays Salat Time for the town
+An Arduino code that displays on a small 0.98" OLED SSD1306 Date/Time and also calculates and displays Salat Time for a given town
 
-This code has math routines to compute sun position and salat time for a given town (latitude / longitude), DST and convention.
-The hardware part is composed of an Arduino Nano, an RTC and the SSD1306 OLED display to display the time, the date and prayer times.
+This code has math routines to compute sun position and muslims salat (prayer) time for a given town (latitude / longitude), DST and convention.
+The hardware part is composed of an Arduino Nano, a RTC DS1307 and the SSD1306 OLED display to display the time, the date and prayer times.
 
 **More info**
   - https://baghli.blogspot.com/2016/07/rtc-salattime-et-arduino.html
