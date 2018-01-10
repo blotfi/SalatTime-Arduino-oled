@@ -10,7 +10,7 @@
 
 // https://github.com/olikraus/u8g2/wiki/u8g2setupcpp
 const unsigned int text1_y0=30, text2_y0=60, text2_x1=0, text2_x2=58;
-char text1[8], text2[8];  //
+char text1[8], text2[6], todaydate[9];  // text to display
 int displaypage=0;
 
 // pas de u8x8 text mode mais du u8g2 graphic 2 lines scrolling
@@ -30,19 +30,19 @@ SoftwareSerial BTSerial(BTRX, BTTX); // RX, TX
 
 //RTC_DS1307 rtc;
 // int Oldih, Oldim, Oldis;
-int quartsec, OldDay, OldMinute, dayMinutes, NextSalat;
+int quartsec, OldDay, OldMinute, OldSecond, dayMinutes, NextSalat;
 
 int i;
 DateTime now;
-char time[30];
+char time[9];
 
 struct FLAGS {
       unsigned Recalcule  :   1;
-      unsigned CheckDate  :   1;
+      unsigned CheckTime  :   1;
       unsigned seconde     :  1;
       unsigned SeqAthan   :   1;
       unsigned Toggles    :   1;
-      unsigned eteint     :   1;
+      unsigned demiseconde:   1;
       unsigned heures     :   1;
       unsigned displayPageTog     :   1;
     };
@@ -62,8 +62,8 @@ void setup()
 
   u8g2.firstPage();
   do {
-		u8g2.drawUTF8(0,text1_y0,"SalatTime");  // write something to the internal memory
-		u8g2.drawUTF8(0,text2_y0,"L. Baghli");  // write something to the internal memory
+    u8g2.drawUTF8(0,text1_y0,"SalatTime");  // write something to the internal memory
+    u8g2.drawUTF8(0,text2_y0,"L. Baghli");  // write something to the internal memory
   } while ( u8g2.nextPage() );
 
   Wire.begin();
@@ -85,24 +85,23 @@ void setup()
   STinit();
   Flags.Recalcule=1;
   Flags.heures=0;
-  Flags.eteint=0;
+  Flags.CheckTime=0;
   Flags.displayPageTog=0;
   
   cli(); // Désactive l'interruption globale
-  TCCR1A = 0;	// pas de PWM ou OCR
-  TCCR1B = (0<<WGM13) | (1<<WGM12) | 4;	// Clear Timer on Compare match (CTC) mode, OCR1A= PRD
-																				// CS12 CS11 CS10 = 0b100 = 4 =>256 prescaler
+  TCCR1A = 0; // pas de PWM ou OCR
+  TCCR1B = (0<<WGM13) | (1<<WGM12) | 4; // Clear Timer on Compare match (CTC) mode, OCR1A= PRD
+                                        // CS12 CS11 CS10 = 0b100 = 4 =>256 prescaler
   OCR1A = 15625; // 62.5 ns * 15625 * 256 prescaler = 0.250 s
   // pas de compteur logiciel
   TIMSK1 = 1<<OCIE1A; // ISR on Output Compare1 (TCNT1==OCR1)
-	TIFR1 = 0;	// clear T1 IF
+  TIFR1 = 0;  // clear T1 IF
   TCNT1 = 0; // RAZ T1
   sei(); // Active l'interruption globale
 }
 //----------------------------------------------------------------------------
 void CheckTime()
 {
-  Flags.seconde = 0;
   now = rtc.now();
 /*
   if (old.second() == now.second())  quartsec++;
@@ -115,16 +114,20 @@ void CheckTime()
     u8x8.drawString(5,1,":");  
     u8x8.drawString(6,1,now.second());
 */
-  
 Flags.Toggles = !Flags.Toggles;
-//sprintf( time, "%8s %02hhu:%02hhu", "Maghrib", SalatT.h[3],SalatT.m[3] );
 /*
 u8x8.setInverseFont(Flags.Toggles);
 u8x8.drawString(0,5,time);
 u8x8.setInverseFont(0);
 */
-  Serial << now.day() << F("/")<< now.month() << F("/")<<now.year()
+  //Serial << F("dp ")<< displaypage << endl;
+  if (OldSecond != now.second()) {
+    if (++displaypage>5)  displaypage=0;  // page change chaque seconde
+    OldSecond = now.second();
+    Serial << now.day() << F("/")<< now.month() << F("/")<<now.year()
           << F(" ")<< now.hour() << F(":")<<now.minute() << F(":")<<now.second() << endl;
+  }
+
           
   if (OldDay != now.day()) Flags.Recalcule = 1;  // recalcule ST
   if ((OldMinute != now.minute()) && (Flags.Recalcule == 0))
@@ -145,35 +148,6 @@ u8x8.setInverseFont(0);
 //debug affiche heure next salat      
       }
     }
-/*
-  // BT Check INput
-  if (BTSerial.available()) {
-    String RxStr = BTSerial.readStringUntil('\n');
-    if (RxStr[0]=='$') {
-      Serial << RxStr;
-      RxStr[0]='0';
-      // $20,09,15,14,25,31
-       char RxStrBuf[22], * pch;
-       int dt[6], Stridx=0;
-       RxStr.toCharArray(RxStrBuf, 22);
-        pch = strtok (RxStrBuf,",");
-        while ((pch != NULL) && (Stridx<6))
-        {
-          dt[Stridx++] = atoi(pch);
-          pch = strtok (NULL, ",");
-        }
-      // int dt[] = int(split(RxStr.substring(1), ','));
-      dt[2] += 2000;  // 2000+16
-      Serial << "Rx:" << dt[0]<< F("/")<< dt[1] << F("/")<< dt[2]
-          << F(" ")<< dt[3] << F(":")<< dt[4] << F(":")<< dt[5] << endl;
-      MaJRTC(dt);
-      
-      }
- 
-    }
-  // BT time output
-  BTSerial << now.day() << F("/")<< now.month() << F("/")<<now.year()
-          << F(" ")<< now.hour() << F(":")<<now.minute() << F(":")<<now.second() << endl;  */ 
 }
 //----------------------------------------------------------------------------
 void MaJRTC(int * dt)
@@ -192,83 +166,61 @@ void MaJRTC(int * dt)
  
 // Routine d'interruption
 ISR(TIMER1_COMPA_vect) {  // 250 ms sont passés, IF RAZ automatiquement
-/*  	
-	if (! Flags.eteint) {
-		// vert pour les ST
-		for (i=0; i<5; i++)    strip.SetPixelColor(iSalatT[i], green);
-		strip.SetPixelColor(iSalatTminute, ltgreen);  
-												 
-		// temps
-    strip.SetPixelColor(id, orange);
-		strip.SetPixelColor(ih, red);
-		if (im != ih) strip.SetPixelColor(im, violet);
-			else        strip.SetPixelColor(im, violetred);
-		if (is != ih) strip.SetPixelColor(is, blue);
-			else        strip.SetPixelColor(is, violetred);
-		if (is != im) strip.SetPixelColor(is, blue);
-			else        strip.SetPixelColor(is, violetred);
-		// Athan
-		
-		if (Flags.heures)  for (i=0; i<24; i++)    strip.SetPixelColor(10*i, pink);
-		}
-
-
-	Serial << quartsec << F("  is=") << is << endl;
-*/
   if (Flags.SeqAthan)
       {
       Flags.Toggles = !Flags.Toggles;
 //      if (Flags.Toggles)  strip.SetPixelColor(iSalatT[NextSalat], yellow);  
 //        else   strip.SetPixelColor(iSalatT[NextSalat], green);
       }
-  if (++quartsec == 4)  {
-  		quartsec = 0;
-  		Flags.seconde = 1;
-  	}
-//  if ((quartsec == 0)||(quartsec == 2))  {
-  if ((quartsec == 0) )  {
-		Flags.displayPageTog = 1;
-  	}
+  if (++quartsec == 4)  quartsec = 0;
+  Flags.CheckTime = 1; // check time chaque 1/4 seconde
+  Flags.displayPageTog = 1; // page affichée chaque 1/4 seconde
+  if (quartsec == 0)  {
+    Flags.seconde = 1;
+//    if (++displaypage>5)  displaypage=0;  // page change chaque seconde
+    }
 }
 //----------------------------------------------------------------------------
 void DisplayPages()
 {
-	if (++displaypage>5)	displaypage=0;
-	switch(displaypage)
-		{
-		case 0: sprintf( text1, "Fajr");
-						sprintf( text2, "%02hhu:%02hhu", SalatT.h[0],SalatT.m[0] );
-				break;
-		case 1: sprintf( text1, "Zuhr");
-						sprintf( text2, "%02hhu:%02hhu", SalatT.h[1],SalatT.m[1] );
-				break;
-		case 2: sprintf( text1, "Asr");
-						sprintf( text2, "%02hhu:%02hhu", SalatT.h[2],SalatT.m[2] );
-				break;
-		case 3: sprintf( text1, "Magr");
-						sprintf( text2, "%02hhu:%02hhu", SalatT.h[3],SalatT.m[3] );
-				break;
-		case 4: sprintf( text1, "Isha");
-						sprintf( text2, "%02hhu:%02hhu", SalatT.h[4],SalatT.m[4] );
-				break;
-		case 5: sprintf( text1, "%02hhu/%02hhu/%02hhu", now.day(),now.month(),now.year()%100 );
-						sprintf( text2, "");
-				break;
-		}
+  switch(displaypage)
+    {
+    case 0: sprintf( text1, "Fajr");
+            sprintf( text2, "%02hhu:%02hhu", SalatT.h[0],SalatT.m[0] );
+        break;
+    case 1: sprintf( text1, "Zuhr");
+            sprintf( text2, "%02hhu:%02hhu", SalatT.h[1],SalatT.m[1] );
+        break;
+    case 2: sprintf( text1, "Asr");
+            sprintf( text2, "%02hhu:%02hhu", SalatT.h[2],SalatT.m[2] );
+        break;
+    case 3: sprintf( text1, "Magr");
+            sprintf( text2, "%02hhu:%02hhu", SalatT.h[3],SalatT.m[3] );
+        break;
+    case 4: sprintf( text1, "Isha");
+            sprintf( text2, "%02hhu:%02hhu", SalatT.h[4],SalatT.m[4] );
+        break;
+    case 5: //sprintf( text1, todaydate ); take too much time
+            for (int i=0; i<8; i++)   text1[i] = todaydate[i];
+            sprintf( text2, "");
+        break;
+    }
   sprintf( time, "%02hhu:%02hhu:%02hhu", now.hour(), now.minute(), now.second() );
 
-	u8g2.firstPage();
-	do {
-		u8g2.drawUTF8(0,text1_y0,time);  // write something to the internal memory
-		u8g2.drawUTF8(text2_x1,text2_y0, text1); 
-		u8g2.drawUTF8(text2_x2,text2_y0, text2);
-	} while ( u8g2.nextPage() );
-	Flags.displayPageTog = 0;
+  u8g2.firstPage();
+  do {
+    u8g2.drawUTF8(0,text1_y0,time);  // write something to the internal memory
+    u8g2.drawUTF8(text2_x1,text2_y0, text1); 
+    u8g2.drawUTF8(text2_x2,text2_y0, text2);
+  } while ( u8g2.nextPage() );
 }
 //----------------------------------------------------------------------------
 void loop()
 {
-  if (Flags.seconde)  CheckTime();
+  if (Flags.CheckTime)  {
+                          CheckTime();
+                          Flags.CheckTime = 0;
+                          }
   if (Flags.Recalcule)  {
                         ComputeSalatTime();
                         /*
@@ -279,7 +231,7 @@ void loop()
                         Serial << F("Maghrib =") << SalatT.h[3] << F(":") <<SalatT.m[3] <<endl;
                         Serial << F("Isha    =") << SalatT.h[4] << F(":") <<SalatT.m[4] <<endl;
                         */  
-												/*
+                        /*
                         sprintf( time, "%02hhu/%02hhu/%04hhu", now.day(),now.month(),now.year() );
                         u8x8.drawString(4,7,time);
                         sprintf( time, "%8s %02hhu:%02hhu", "Fajr", SalatT.h[0],SalatT.m[0] );
@@ -297,10 +249,14 @@ strncpy ( text2, icystreamtitle.c_str(), text2_len) ;                         //
                         u8x8.drawString(0,6,time);
   */
                         OldDay = now.day();
+                        sprintf( todaydate, "%02hhu/%02hhu/%02hhu", now.day(),now.month(),now.year()%100 );
+                        todaydate[8]=0;
                         OldMinute = 61;
-                        
+                        OldSecond = 61;
                         Flags.Recalcule = 0;
                         }
-  if (Flags.displayPageTog)  DisplayPages();
+  if (Flags.displayPageTog) {
+                            DisplayPages();
+                            Flags.displayPageTog = 0;
+                            }
 }
-
